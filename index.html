@@ -247,7 +247,7 @@ function elo(ratingA, ratingB, scoreA, k) {
 // ⟦KERNEL-END⟧
 
 const $ = (id) => document.getElementById(id);
-const MOVES = ['strike', 'guard', 'special'];
+const MOVE_TYPES = ['strike', 'guard', 'special'];
 let state = null, board = null;
 function reset() {
   state = { a: { hp: 100, budget: 10 }, b: { hp: 100, budget: 10 }, over: false };
@@ -261,7 +261,7 @@ function reset() {
 let selA = 'strike', selB = 'strike';
 function buildMoves(host, which) {
   host.innerHTML = '';
-  for (const m of MOVES) {
+  for (const m of MOVE_TYPES) {
     const btn = document.createElement('button');
     btn.textContent = m;
     if ((which === 'a' ? selA : selB) === m) btn.className = 'sel';
