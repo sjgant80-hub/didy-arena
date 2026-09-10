@@ -286,7 +286,10 @@ $('fight').addEventListener('click', () => {
   if (state.over) { $('log').textContent = 'Match over — reset to play again.'; return; }
   const r = resolveRound(state.a, state.b, mv(selA, $('pa').checked), mv(selB, $('pb').checked));
   if (!r.ok) { $('log').textContent = 'refused — ' + r.why; return; }
-  state.a = r.a; state.b = r.b;
+  // budget regen between rounds (+3, capped at 10) — a match orchestration detail so specials
+  // stay affordable and a match can reach a KO. The resolver stays pure; this is the loop.
+  state.a = { hp: r.a.hp, budget: Math.min(10, r.a.budget + 3) };
+  state.b = { hp: r.b.hp, budget: Math.min(10, r.b.budget + 3) };
   let line = 'sididy ' + r.log.a + ' → ' + r.dealtByA + ' dmg  ·  nexus ' + r.log.b + ' → ' + r.dealtByB + ' dmg';
   render();
   const w = matchWinner(state.a.hp, state.b.hp);
