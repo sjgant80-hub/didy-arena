@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { COST, DAMAGE, newFighter, resolveRound, matchWinner, elo } from './kernel.mjs';
+import { COST, DAMAGE, newFighter, resolveRound, matchWinner, elo, chooseMove } from './kernel.mjs';
 
 const F = () => ({ hp: 100, budget: 10 });
 
@@ -139,4 +139,61 @@ test('readMove guards each fire alone (null throws through a merged guard — ca
   assert.equal(resolveRound(F2, F2, [], { type: 'guard' }).ok, false);          // array move
   assert.equal(resolveRound(F2, F2, 'strike', { type: 'guard' }).ok, false);    // string move
   assert.equal(resolveRound(F2, F2, 42, { type: 'guard' }).ok, false);          // number move
+});
+
+test('chooseMove: the House agent plays sensibly and deterministically', () => {
+  // budget + a proof → a proven special (best value)
+  const s = chooseMove({ selfBudget: 10, hasProof: true }, 42);
+  assert.deepEqual(s.move, { type: 'special', proven: true });
+  // budget but no proof → strike or guard, never a special it cannot back
+  const ns = chooseMove({ selfBudget: 10, hasProof: false }, 42);
+  assert.ok(ns.move.type === 'strike' || ns.move.type === 'guard');
+  assert.notEqual(ns.move.type, 'special');
+  // too poor to strike → guard (regen)
+  assert.equal(chooseMove({ selfBudget: 1, hasProof: true }, 42).move.type, 'guard');
+  // deterministic: same view+seed → same move
+  assert.deepEqual(chooseMove({ selfBudget: 10, hasProof: false }, 7).move, chooseMove({ selfBudget: 10, hasProof: false }, 7).move);
+  // budget exactly special cost + proof → special (kills selfBudget >= COST.special → >)
+  assert.equal(chooseMove({ selfBudget: 5, hasProof: true }, 42).move.type, 'special');
+  // budget exactly strike cost, no proof → never a special, only strike or guard (afford edge)
+  assert.notEqual(chooseMove({ selfBudget: 2, hasProof: false }, 3).move.type, 'special');
+  // budget just below strike cost → guard only (cannot strike)
+  assert.equal(chooseMove({ selfBudget: 1, hasProof: false }, 3).move.type, 'guard');
+  // budget EXACTLY strike cost (2) can strike (kills selfBudget >= COST.strike → >)
+  assert.equal(chooseMove({ selfBudget: 2, hasProof: false }, 2).move.type, 'strike');
+  // the strike/guard jitter is real — seed 2 strikes, seed 1 guards (kills next%4 !== 0 → === 0)
+  assert.equal(chooseMove({ selfBudget: 10, hasProof: false }, 2).move.type, 'strike');
+  assert.equal(chooseMove({ selfBudget: 10, hasProof: false }, 1).move.type, 'guard');
+  // the LCG constant is pinned (kills + 1013904223 → -)
+  assert.equal(chooseMove({ selfBudget: 5, hasProof: true }, 42).seed, 1083814273);
+});
+
+test('chooseMove: total on garbage', () => {
+  assert.equal(chooseMove(null, 1).ok, false);
+  assert.equal(chooseMove([], 1).ok, false);
+  assert.equal(chooseMove({ selfBudget: 1.5, hasProof: true }, 1).ok, false);
+  assert.equal(chooseMove({ selfBudget: -1, hasProof: true }, 1).ok, false);
+  assert.equal(chooseMove({ selfBudget: 5, hasProof: 'yes' }, 1).ok, false);
+  assert.equal(chooseMove({ selfBudget: 5, hasProof: true }, -1).ok, false);
+  assert.equal(chooseMove({ selfBudget: 5, hasProof: true }, 1.5).ok, false);
+  assert.equal(chooseMove({ selfBudget: 0, hasProof: true }, 0).ok, true);   // budget 0 valid (kills < 0 → <= 0); seed 0 valid
+});
+
+test('a full House-vs-House match reaches a KO with no human input', () => {
+  let a = { hp: 100, budget: 10 }, b = { hp: 100, budget: 10 };
+  let sa = 11, sb = 99, rounds = 0, over = false;
+  while (!over && rounds < 200) {
+    const ma = chooseMove({ selfBudget: a.budget, hasProof: a.budget >= COST.special }, sa); sa = ma.seed;
+    const mb = chooseMove({ selfBudget: b.budget, hasProof: b.budget >= COST.special }, sb); sb = mb.seed;
+    const r = resolveRound(a, b, ma.move, mb.move);
+    assert.equal(r.ok, true);
+    a = { hp: r.a.hp, budget: Math.min(10, r.a.budget + 3) };
+    b = { hp: r.b.hp, budget: Math.min(10, r.b.budget + 3) };
+    rounds++;
+    if (a.hp === 0 || b.hp === 0) over = true;
+  }
+  assert.equal(over, true, 'the match must terminate, not stall');   // proves the game actually plays to completion
+  assert.ok(rounds < 200, 'it must KO well before the safety cap: ' + rounds);
+  const w = matchWinner(a.hp, b.hp);
+  assert.ok(['a', 'b', 'draw'].includes(w.winner));   // a double-KO draw is a valid ending; the point is it CONCLUDED
 });

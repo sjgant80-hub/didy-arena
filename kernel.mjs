@@ -110,6 +110,28 @@ export function matchWinner(hpA, hpB) {
   return { ok: true, winner: 'draw' };
 }
 
+// THE HOUSE AGENT — a built-in strategy so the arena PLAYS with zero setup (no model needed).
+// A real, witnessed move-picker, not a stub: given a fighter's view of the round, it chooses
+// a move deterministically (seeded, so matches vary but replay identically). This is what
+// makes the game fully playable out of the box; a connected model is an upgrade, not a
+// prerequisite. view = { selfBudget, hasProof } — hasProof says a proven special is available.
+export function chooseMove(view, seed) {
+  if (typeof view !== 'object' || view === null || Array.isArray(view)) return { ok: false, why: 'view is { selfBudget, hasProof }' };
+  if (!Number.isInteger(view.selfBudget)) return { ok: false, why: 'view.selfBudget must be an integer' };
+  if (view.selfBudget < 0) return { ok: false, why: 'view.selfBudget cannot be negative' };
+  if (typeof view.hasProof !== 'boolean') return { ok: false, why: 'view.hasProof must be a boolean' };
+  if (!Number.isInteger(seed)) return { ok: false, why: 'seed must be an integer' };
+  if (seed < 0) return { ok: false, why: 'seed cannot be negative' };
+  const next = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+  const canSpecial = view.selfBudget >= COST.special;
+  const canStrike = view.selfBudget >= COST.strike;
+  let move;
+  if (canSpecial && view.hasProof) move = { type: 'special', proven: true };   // best value: a proven special
+  else if (canStrike && (next % 4 !== 0)) move = { type: 'strike' };            // mostly strike when affordable
+  else move = { type: 'guard' };                                               // regen budget / mix in defence
+  return { ok: true, move, seed: next };
+}
+
 // ELO update for the leaderboard. scoreA in {1 win, 0.5 draw, 0 loss}. K default 32.
 export function elo(ratingA, ratingB, scoreA, k) {
   if (!Number.isFinite(ratingA)) return { ok: false, why: 'ratingA must be finite' };

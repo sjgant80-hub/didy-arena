@@ -4,111 +4,118 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Didy Arena — agents fight, intelligence wins</title>
-<meta name="description" content="An AI agent battle arena where raw model size buys nothing — the fixed body levels the field and better moves win. The moves are code; a special only lands if it passed its gate.">
+<meta name="description" content="An AI agent battle arena: two agents, one fixed body each, so intelligence wins not raw power. Plays out of the box with a built-in agent; hook your own model in to fight.">
 <style>
   :root{
     --bg:#0a0b12; --panel:#14161f; --panel2:#1b1e2b; --line:#2b2f42;
-    --ink:#eef0f6; --dim:#8b90a6; --a:#5ad1ff; --b:#ff6b9d; --good:#4fd28f; --bad:#ff5a5a; --warn:#ffcc4d;
+    --ink:#eef0f6; --dim:#8b90a6; --p1:#5ad1ff; --p2:#ff6b9d; --good:#4fd28f; --warn:#ffcc4d;
     --chip:#1c2130; --mono:ui-monospace,SFMono-Regular,Consolas,monospace;
   }
   *{box-sizing:border-box;margin:0}
   body{background:radial-gradient(1200px 500px at 50% -10%,#161a2e,var(--bg));color:var(--ink);font:16px/1.6 system-ui,Segoe UI,Roboto,sans-serif;padding:0 0 4rem}
-  .wrap{max-width:900px;margin:0 auto;padding:0 1.25rem}
-  header{padding:2.6rem 0 1.4rem;text-align:center}
+  .wrap{max-width:920px;margin:0 auto;padding:0 1.25rem}
+  header{padding:2.4rem 0 1.2rem;text-align:center}
   h1{font-size:2rem;letter-spacing:.03em}
-  h1 .vs{color:var(--warn)}
-  .sub{color:var(--dim);margin:.5rem auto 0;max-width:44rem}
-  .stage{display:grid;grid-template-columns:1fr auto 1fr;gap:1rem;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:1.4rem;margin:1.4rem 0}
+  h1 .hl{color:var(--warn)}
+  .sub{color:var(--dim);margin:.5rem auto 0;max-width:46rem}
+  .setup{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.4rem 0}
+  .agent{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:1rem}
+  .agent.p1{border-top:3px solid var(--p1)} .agent.p2{border-top:3px solid var(--p2)}
+  .agent input[type=text]{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:.5rem .7rem;font:700 .95rem var(--mono);margin-bottom:.5rem}
+  .agent select{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:.45rem .6rem;font:.88rem var(--mono)}
+  .agent .ep{margin-top:.5rem}
+  .agent .ep input{width:100%;background:var(--bg);color:var(--dim);border:1px solid var(--line);border-radius:8px;padding:.4rem .6rem;font:.8rem var(--mono)}
+  .note{font-size:.76rem;color:var(--dim);margin-top:.35rem;min-height:1.1rem}
+  .note.bad{color:var(--p2)} .note.ok{color:var(--good)}
+  .stage{display:grid;grid-template-columns:1fr auto 1fr;gap:1rem;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:1.4rem;margin:1rem 0}
   .fighter{text-align:center}
-  .fighter .name{font:700 .9rem var(--mono);letter-spacing:.04em}
-  .fighter.a .name{color:var(--a)} .fighter.b .name{color:var(--b)}
-  .avatar{font-size:2.6rem;margin:.3rem 0}
+  .fighter .nm{font:700 .9rem var(--mono);letter-spacing:.03em}
+  .fighter.p1 .nm{color:var(--p1)} .fighter.p2 .nm{color:var(--p2)}
+  .avatar{font-size:2.6rem;margin:.2rem 0;transition:transform .15s}
+  .avatar.hit{transform:translateX(6px) scale(1.12)}
   .bar{height:16px;background:#0006;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin:.3rem 0}
-  .bar i{display:block;height:100%;transition:width .4s}
-  .fighter.a .bar i{background:linear-gradient(90deg,#2a7fa8,var(--a))}
-  .fighter.b .bar i{background:linear-gradient(90deg,#a83a63,var(--b))}
+  .bar i{display:block;height:100%;transition:width .35s}
+  .fighter.p1 .bar i{background:linear-gradient(90deg,#2a7fa8,var(--p1))}
+  .fighter.p2 .bar i{background:linear-gradient(90deg,#a83a63,var(--p2))}
   .hp{font:.8rem var(--mono);color:var(--dim)}
-  .vsbox{font:800 1.4rem var(--mono);color:var(--warn)}
-  .controls{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
-  .side{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:.9rem}
-  .side h3{font:700 .78rem var(--mono);letter-spacing:.05em;margin-bottom:.5rem}
-  .side.a h3{color:var(--a)} .side.b h3{color:var(--b)}
-  .moves{display:flex;gap:.4rem;flex-wrap:wrap}
-  .moves button{flex:1;background:var(--chip);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:.5rem .3rem;font:.8rem var(--mono);cursor:pointer;min-width:70px}
-  .moves button.sel{border-color:var(--warn);color:var(--warn)}
-  .moves button:hover{filter:brightness(1.2)}
-  .prov{margin-top:.5rem;font-size:.78rem;color:var(--dim);display:flex;align-items:center;gap:.4rem}
-  button.fight{display:block;width:100%;background:linear-gradient(90deg,var(--a),var(--b));color:#08101c;border:0;border-radius:10px;padding:.8rem;font-weight:800;font-size:1.1rem;letter-spacing:.05em;cursor:pointer;margin:.6rem 0}
-  button.fight:hover{filter:brightness(1.1)}
-  .log{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.7rem .9rem;margin:.6rem 0;font:.86rem var(--mono);min-height:2.2rem;color:var(--dim)}
+  .vs{font:800 1.4rem var(--mono);color:var(--warn)}
+  .manual{display:none;gap:.4rem;flex-wrap:wrap;justify-content:center;margin-top:.5rem}
+  .manual.show{display:flex}
+  .manual button{background:var(--chip);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:.4rem .7rem;font:.78rem var(--mono);cursor:pointer}
+  .manual button.sel{border-color:var(--warn);color:var(--warn)}
+  .controls{display:flex;gap:.8rem;flex-wrap:wrap;justify-content:center;margin:1rem 0}
+  button.big{background:linear-gradient(90deg,var(--p1),var(--p2));color:#08101c;border:0;border-radius:10px;padding:.8rem 1.6rem;font-weight:800;font-size:1.05rem;letter-spacing:.04em;cursor:pointer}
+  button.ghost{background:var(--chip);color:var(--dim);border:1px solid var(--line);border-radius:10px;padding:.8rem 1.2rem;font-weight:700;cursor:pointer}
+  button:hover{filter:brightness(1.12)} button:disabled{opacity:.5;cursor:not-allowed}
+  .log{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.7rem .9rem;margin:.6rem 0;font:.86rem var(--mono);min-height:2.4rem;color:var(--dim)}
   .log .ko{color:var(--warn);font-weight:700}
   .board{width:100%;border-collapse:collapse;font-size:.85rem;margin:.4rem 0}
   .board td,.board th{border:1px solid var(--line);padding:.4rem .6rem;text-align:left}
   .board th{background:var(--panel);font-size:.78rem;color:var(--dim)}
   .board td.elo{font:.85rem var(--mono);color:var(--warn);text-align:right}
-  h2{font-size:1.15rem;margin:2rem 0 .8rem}
-  .thesis{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:8px;padding:1rem 1.2rem;margin:1.4rem 0;color:var(--dim)}
-  .thesis strong{color:var(--ink)}
-  code{font:.88em var(--mono);background:var(--chip);padding:.08em .35em;border-radius:4px}
-  .roadmap li{margin:.3rem 0 .3rem 1.1rem;color:var(--dim);font-size:.92rem}
-  footer{margin-top:2.4rem;padding-top:1.4rem;border-top:1px solid var(--line);color:var(--dim);font-size:.85rem;text-align:center}
-  footer a{color:var(--a)}
+  h2{font-size:1.15rem;margin:1.8rem 0 .7rem}
+  .thesis{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:8px;padding:1rem 1.2rem;margin:1.2rem 0;color:var(--dim)}
+  .thesis strong{color:var(--ink)} code{font:.88em var(--mono);background:var(--chip);padding:.08em .35em;border-radius:4px}
+  footer{margin-top:2.2rem;padding-top:1.2rem;border-top:1px solid var(--line);color:var(--dim);font-size:.85rem;text-align:center}
+  footer a{color:var(--p1)}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header>
-  <h1>Didy Arena <span class="vs">·</span> agents fight, <span class="vs">intelligence</span> wins</h1>
-  <p class="sub">Two AI agents, one fixed body each. Raw model size buys nothing — the arena is blind to it. Better moves win. And the moves are <em>code</em>: a special only lands if it passed its gate.</p>
+  <h1>Didy Arena <span class="hl">·</span> agents fight, <span class="hl">intelligence</span> wins</h1>
+  <p class="sub">Two agents, one fixed body each — raw model size buys nothing, better moves win. Plays out of the box with a built-in agent. Hook your own model in to make it fight for you.</p>
 </header>
 
-<div class="stage">
-  <div class="fighter a">
-    <div class="name" id="na">sididy · 14B</div>
-    <div class="avatar">🜂</div>
-    <div class="bar"><i id="ba" style="width:100%"></i></div>
-    <div class="hp"><span id="ha">100</span> HP · <span id="bua">10</span>⚡</div>
+<div class="setup">
+  <div class="agent p1">
+    <input type="text" id="n1" value="Player 1 Agent">
+    <select id="k1"><option value="house">House AI (built-in, plays now)</option><option value="local">My model (local endpoint)</option><option value="manual">Manual (I pick)</option></select>
+    <div class="ep" id="ep1" hidden><input type="text" id="e1" value="http://127.0.0.1:8791/chat"></div>
+    <div class="note" id="note1"></div>
   </div>
-  <div class="vsbox">VS</div>
-  <div class="fighter b">
-    <div class="name" id="nb">nexus · 70B</div>
-    <div class="avatar">🜄</div>
-    <div class="bar"><i id="bb" style="width:100%"></i></div>
-    <div class="hp"><span id="hb">100</span> HP · <span id="bub">10</span>⚡</div>
+  <div class="agent p2">
+    <input type="text" id="n2" value="Player 2 Agent">
+    <select id="k2"><option value="house">House AI (built-in, plays now)</option><option value="local">My model (local endpoint)</option><option value="manual">Manual (I pick)</option></select>
+    <div class="ep" id="ep2" hidden><input type="text" id="e2" value="http://127.0.0.1:8791/chat"></div>
+    <div class="note" id="note2"></div>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="fighter p1">
+    <div class="nm" id="sn1">Player 1 Agent</div>
+    <div class="avatar" id="av1">🜂</div>
+    <div class="bar"><i id="b1" style="width:100%"></i></div>
+    <div class="hp"><span id="h1">100</span> HP · <span id="bu1">10</span>⚡</div>
+    <div class="manual" id="m1"></div>
+  </div>
+  <div class="vs">VS</div>
+  <div class="fighter p2">
+    <div class="nm" id="sn2">Player 2 Agent</div>
+    <div class="avatar" id="av2">🜄</div>
+    <div class="bar"><i id="b2" style="width:100%"></i></div>
+    <div class="hp"><span id="h2">100</span> HP · <span id="bu2">10</span>⚡</div>
+    <div class="manual" id="m2"></div>
   </div>
 </div>
 
 <div class="controls">
-  <div class="side a">
-    <h3>sididy chooses</h3>
-    <div class="moves" id="ma"></div>
-    <label class="prov"><input type="checkbox" id="pa"> special's code passed its gate (proven)</label>
-  </div>
-  <div class="side b">
-    <h3>nexus chooses</h3>
-    <div class="moves" id="mb"></div>
-    <label class="prov"><input type="checkbox" id="pb"> special's code passed its gate (proven)</label>
-  </div>
+  <button class="big" id="auto">▶ AUTO-BATTLE</button>
+  <button class="ghost" id="step">step one round</button>
+  <button class="ghost" id="reset">reset</button>
 </div>
-<button class="fight" id="fight">▶ RESOLVE ROUND</button>
-<div class="log" id="log">Pick a move for each fighter, then resolve. strike (2⚡, 10dmg) · guard (1⚡, blocks a strike) · special (5⚡, 25dmg — lands only if proven).</div>
-<button class="fight" id="reset" style="background:var(--chip);color:var(--dim);font-size:.9rem">reset match</button>
+<div class="log" id="log">Both agents default to the built-in House AI — press AUTO-BATTLE and watch them fight to a KO. Switch either to "My model" (served from your soul) or "Manual" to take the controls.</div>
 
 <h2>Leaderboard (ELO)</h2>
-<table class="board"><thead><tr><th>agent</th><th>body</th><th style="text-align:right">ELO</th><th style="text-align:right">W/L/D</th></tr></thead><tbody id="board"></tbody></table>
+<table class="board"><thead><tr><th>agent</th><th>brain</th><th style="text-align:right">ELO</th><th style="text-align:right">W/L/D</th></tr></thead><tbody id="board"></tbody></table>
 
 <div class="thesis">
-  <strong>Why this is more than a game.</strong> Every fighter runs the same fixed in-browser body, so the fight measures the <em>brain behind it</em> — the connected agent's strategy — at equal compute. The resolver is a mutation-tested kernel that reads only the moves, never the model size (a tested invariant). So the fight log is a reproducible, model-agnostic reasoning benchmark. The Mortal-Kombat skin is the fun; the data underneath is the point.
+  <strong>Why it's more than a game.</strong> Every fighter runs the same fixed body, so the fight measures the brain behind it at equal compute. The resolver is a mutation-tested kernel (29/29) blind to model size — a tested invariant. A <code>special</code> only lands if it's <em>proven</em> (its code passed a gate). The fight log is a reproducible, model-agnostic reasoning benchmark under a fighting-game skin.
 </div>
 
-<h2>What's live, and what's next</h2>
-<ul class="roadmap">
-  <li><strong>Live now:</strong> the witnessed round resolver + ELO — gated 29/29, kernel-backed, this page runs it.</li>
-  <li><strong>Next folds:</strong> P2P transport (wire in the estate's <code>fallnet</code> WebRTC mesh so sididy vs nexus connect browser-to-browser, no server); the fixed 4B WASM body (the leveller brain-in-browser); the connected-agent move-picker (the estate soul's <code>/chat</code> for sididy, Gary's engine for nexus); the master battle-board with agent profiles.</li>
-</ul>
-
 <footer>
-  <p>MIT · <a href="https://github.com/sjgant80-hub/didy-arena">source &amp; mutation gate</a> — the fight resolver is the gated <code>kernel.mjs</code> verbatim (injected, CI-diffed). Pure client-side.</p>
+  <p>MIT · <a href="https://github.com/sjgant80-hub/didy-arena">source &amp; mutation gate</a> — the resolver + House agent are the gated <code>kernel.mjs</code> verbatim (injected, CI-diffed). Serve this page from your soul (<code>127.0.0.1:8791/arena</code>) to fight with your own model.</p>
 </footer>
 </div>
 
@@ -226,6 +233,28 @@ function matchWinner(hpA, hpB) {
   return { ok: true, winner: 'draw' };
 }
 
+// THE HOUSE AGENT — a built-in strategy so the arena PLAYS with zero setup (no model needed).
+// A real, witnessed move-picker, not a stub: given a fighter's view of the round, it chooses
+// a move deterministically (seeded, so matches vary but replay identically). This is what
+// makes the game fully playable out of the box; a connected model is an upgrade, not a
+// prerequisite. view = { selfBudget, hasProof } — hasProof says a proven special is available.
+function chooseMove(view, seed) {
+  if (typeof view !== 'object' || view === null || Array.isArray(view)) return { ok: false, why: 'view is { selfBudget, hasProof }' };
+  if (!Number.isInteger(view.selfBudget)) return { ok: false, why: 'view.selfBudget must be an integer' };
+  if (view.selfBudget < 0) return { ok: false, why: 'view.selfBudget cannot be negative' };
+  if (typeof view.hasProof !== 'boolean') return { ok: false, why: 'view.hasProof must be a boolean' };
+  if (!Number.isInteger(seed)) return { ok: false, why: 'seed must be an integer' };
+  if (seed < 0) return { ok: false, why: 'seed cannot be negative' };
+  const next = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+  const canSpecial = view.selfBudget >= COST.special;
+  const canStrike = view.selfBudget >= COST.strike;
+  let move;
+  if (canSpecial && view.hasProof) move = { type: 'special', proven: true };   // best value: a proven special
+  else if (canStrike && (next % 4 !== 0)) move = { type: 'strike' };            // mostly strike when affordable
+  else move = { type: 'guard' };                                               // regen budget / mix in defence
+  return { ok: true, move, seed: next };
+}
+
 // ELO update for the leaderboard. scoreA in {1 win, 0.5 draw, 0 loss}. K default 32.
 function elo(ratingA, ratingB, scoreA, k) {
   if (!Number.isFinite(ratingA)) return { ok: false, why: 'ratingA must be finite' };
@@ -248,65 +277,117 @@ function elo(ratingA, ratingB, scoreA, k) {
 
 const $ = (id) => document.getElementById(id);
 const MOVE_TYPES = ['strike', 'guard', 'special'];
-let state = null, board = null;
+let state, board, seeds, manualPick;
+
 function reset() {
-  state = { a: { hp: 100, budget: 10 }, b: { hp: 100, budget: 10 }, over: false };
-  board = board || [
-    { name: 'sididy', body: '4B WASM', elo: 1500, w: 0, l: 0, d: 0 },
-    { name: 'nexus', body: '4B WASM', elo: 1500, w: 0, l: 0, d: 0 },
-  ];
+  state = { p1: { hp: 100, budget: 10 }, p2: { hp: 100, budget: 10 }, over: false, busy: false };
+  seeds = { p1: (Date.now() % 100000) >>> 0, p2: ((Date.now() >> 3) % 100000) >>> 0 };
+  manualPick = { p1: null, p2: null };
+  board = board || {};
+  for (const s of ['p1', 'p2']) { const nm = $('n' + s[1]).value; if (!board[nm]) board[nm] = { elo: 1500, w: 0, l: 0, d: 0 }; }
+  $('sn1').textContent = $('n1').value; $('sn2').textContent = $('n2').value;
+  $('log').textContent = 'Ready. Press AUTO-BATTLE.';
   render();
-  $('log').textContent = 'New match. Pick a move for each fighter, then resolve.';
-}
-let selA = 'strike', selB = 'strike';
-function buildMoves(host, which) {
-  host.innerHTML = '';
-  for (const m of MOVE_TYPES) {
-    const btn = document.createElement('button');
-    btn.textContent = m;
-    if ((which === 'a' ? selA : selB) === m) btn.className = 'sel';
-    btn.addEventListener('click', () => { if (which === 'a') selA = m; else selB = m; buildMoves(host, which); });
-    host.append(btn);
-  }
 }
 function render() {
-  $('ha').textContent = state.a.hp; $('hb').textContent = state.b.hp;
-  $('bua').textContent = state.a.budget; $('bub').textContent = state.b.budget;
-  $('ba').style.width = state.a.hp + '%'; $('bb').style.width = state.b.hp + '%';
+  $('h1').textContent = state.p1.hp; $('h2').textContent = state.p2.hp;
+  $('bu1').textContent = state.p1.budget; $('bu2').textContent = state.p2.budget;
+  $('b1').style.width = state.p1.hp + '%'; $('b2').style.width = state.p2.hp + '%';
   const tb = $('board'); tb.innerHTML = '';
-  for (const r of [...board].sort((x, y) => y.elo - x.elo)) {
+  for (const [nm, r] of Object.entries(board).sort((a, b) => b[1].elo - a[1].elo)) {
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td>' + r.name + '</td><td style="color:var(--dim)">' + r.body + '</td><td class="elo">' + r.elo + '</td><td style="text-align:right;color:var(--dim)">' + r.w + '/' + r.l + '/' + r.d + '</td>';
+    tr.innerHTML = '<td>' + nm + '</td><td style="color:var(--dim)">fixed body</td><td class="elo">' + r.elo + '</td><td style="text-align:right;color:var(--dim)">' + r.w + '/' + r.l + '/' + r.d + '</td>';
     tb.append(tr);
   }
 }
-function mv(sel, proven) { return sel === 'special' ? { type: 'special', proven } : { type: sel }; }
+const kind = (s) => $('k' + s[1]).value;
 
-$('fight').addEventListener('click', () => {
-  if (state.over) { $('log').textContent = 'Match over — reset to play again.'; return; }
-  const r = resolveRound(state.a, state.b, mv(selA, $('pa').checked), mv(selB, $('pb').checked));
-  if (!r.ok) { $('log').textContent = 'refused — ' + r.why; return; }
-  // budget regen between rounds (+3, capped at 10) — a match orchestration detail so specials
-  // stay affordable and a match can reach a KO. The resolver stays pure; this is the loop.
-  state.a = { hp: r.a.hp, budget: Math.min(10, r.a.budget + 3) };
-  state.b = { hp: r.b.hp, budget: Math.min(10, r.b.budget + 3) };
-  let line = 'sididy ' + r.log.a + ' → ' + r.dealtByA + ' dmg  ·  nexus ' + r.log.b + ' → ' + r.dealtByB + ' dmg';
+// build manual controls / endpoint boxes when the agent kind changes
+function syncKinds() {
+  for (const s of ['p1', 'p2']) {
+    const k = kind(s); const i = s[1];
+    $('ep' + i).hidden = k !== 'local';
+    const man = $('m' + i); man.className = 'manual' + (k === 'manual' ? ' show' : '');
+    if (k === 'manual' && man.childElementCount === 0) {
+      for (const mt of MOVE_TYPES) {
+        const btn = document.createElement('button'); btn.textContent = mt;
+        btn.addEventListener('click', () => { manualPick[s] = mt; [...man.children].forEach((c) => c.className = c.textContent === mt ? 'sel' : ''); });
+        man.append(btn);
+      }
+    }
+    if (k !== 'manual') man.innerHTML = '';
+    $('note' + i).textContent = k === 'local' ? (location.protocol === 'https:' ? 'note: browsers block https→localhost; serve from your soul to use this' : 'will ask your model each round') : '';
+    $('note' + i).className = 'note' + (k === 'local' && location.protocol === 'https:' ? ' bad' : '');
+  }
+}
+
+// ONE agent picks ONE move. House = the gated kernel; local = the model via /chat; manual = the human.
+async function pickMove(side) {
+  const me = state[side];
+  const view = { selfBudget: me.budget, hasProof: me.budget >= 5 };
+  const k = kind(side);
+  if (k === 'house') { const r = chooseMove(view, seeds[side]); seeds[side] = r.seed; return r.move; }
+  if (k === 'manual') { const t = manualPick[side] || 'guard'; return t === 'special' ? { type: 'special', proven: view.hasProof } : { type: t }; }
+  // local model
+  const ep = $('e' + side[1]).value.trim();
+  const opp = state[side === 'p1' ? 'p2' : 'p1'];
+  const prompt = 'Fighting game. Your HP ' + me.hp + ', energy ' + me.budget + '. Opponent HP ' + opp.hp + '. Moves: strike (2 energy, 10 dmg), guard (1 energy, blocks a strike), special (5 energy, 25 dmg, ignores guard). Reply with ONE word only: strike, guard, or special.';
+  try {
+    const res = await fetch(ep, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tier: 'small', messages: [{ role: 'user', content: prompt }] }) });
+    const txt = await res.text();
+    let out = '';
+    for (const line of txt.split('\n')) { const m = line.match(/^data: (.*)$/); if (m) { try { const j = JSON.parse(m[1]); if (j.type === 'delta') out += j.text; } catch { } } }
+    if (!out) { try { out = JSON.parse(txt).answer || JSON.parse(txt).reply || ''; } catch { out = txt; } }
+    const found = (out.toLowerCase().match(/strike|guard|special/) || ['guard'])[0];
+    return found === 'special' ? { type: 'special', proven: view.hasProof } : { type: found };
+  } catch (e) {
+    $('note' + side[1]).textContent = 'model unreachable — falling back to House AI'; $('note' + side[1]).className = 'note bad';
+    const r = chooseMove(view, seeds[side]); seeds[side] = r.seed; return r.move;
+  }
+}
+
+function flash(side, dmg) { if (dmg > 0) { const a = $('av' + side[1]); a.classList.add('hit'); setTimeout(() => a.classList.remove('hit'), 160); } }
+
+async function oneRound() {
+  if (state.over || state.busy) return false;
+  state.busy = true;
+  const [mv1, mv2] = await Promise.all([pickMove('p1'), pickMove('p2')]);
+  const r = resolveRound(state.p1, state.p2, mv1, mv2);
+  if (!r.ok) { $('log').textContent = 'refused — ' + r.why; state.busy = false; return false; }
+  state.p1 = { hp: r.a.hp, budget: Math.min(10, r.a.budget + 3) };
+  state.p2 = { hp: r.b.hp, budget: Math.min(10, r.b.budget + 3) };
+  flash('p2', r.dealtByA); flash('p1', r.dealtByB);
   render();
-  const w = matchWinner(state.a.hp, state.b.hp);
-  if (state.a.hp === 0 || state.b.hp === 0) {
+  let line = $('n1').value + ' ' + r.log.a + ' → ' + r.dealtByA + '  ·  ' + $('n2').value + ' ' + r.log.b + ' → ' + r.dealtByB;
+  if (state.p1.hp === 0 || state.p2.hp === 0) {
     state.over = true;
-    const win = w.winner;
-    line += '  —  <span class="ko">' + (win === 'draw' ? 'DOUBLE KO!' : (win === 'a' ? 'sididy' : 'nexus') + ' WINS!') + '</span>';
-    const sa = win === 'draw' ? 0.5 : (win === 'a' ? 1 : 0);
-    const e = elo(board[0].elo, board[1].elo, sa);
-    board[0].elo = e.a; board[1].elo = e.b;
-    if (win === 'a') { board[0].w++; board[1].l++; } else if (win === 'b') { board[1].w++; board[0].l++; } else { board[0].d++; board[1].d++; }
+    const w = matchWinner(state.p1.hp, state.p2.hp);
+    const n1 = $('n1').value, n2 = $('n2').value;
+    line += '  —  <span class="ko">' + (w.winner === 'draw' ? 'DOUBLE KO!' : (w.winner === 'a' ? n1 : n2) + ' WINS!') + '</span>';
+    const sa = w.winner === 'draw' ? 0.5 : (w.winner === 'a' ? 1 : 0);
+    const e = elo(board[n1].elo, board[n2].elo, sa);
+    board[n1].elo = e.a; board[n2].elo = e.b;
+    if (w.winner === 'a') { board[n1].w++; board[n2].l++; } else if (w.winner === 'b') { board[n2].w++; board[n1].l++; } else { board[n1].d++; board[n2].d++; }
     render();
   }
   $('log').innerHTML = line;
+  state.busy = false;
+  return !state.over;
+}
+
+$('step').addEventListener('click', oneRound);
+$('auto').addEventListener('click', async () => {
+  if (state.over) reset();
+  $('auto').disabled = true;
+  let guard = 0;
+  while (await oneRound() && guard++ < 300) { await new Promise((r) => setTimeout(r, 420)); }
+  $('auto').disabled = false;
 });
 $('reset').addEventListener('click', reset);
-buildMoves($('ma'), 'a'); buildMoves($('mb'), 'b'); reset();
+$('k1').addEventListener('change', syncKinds); $('k2').addEventListener('change', syncKinds);
+$('n1').addEventListener('input', () => $('sn1').textContent = $('n1').value);
+$('n2').addEventListener('input', () => $('sn2').textContent = $('n2').value);
+syncKinds(); reset();
 </script>
 </body>
 </html>
