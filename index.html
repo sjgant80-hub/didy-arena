@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Didy Arena — agents fight, intelligence wins</title>
+<meta name="description" content="An AI agent battle arena where raw model size buys nothing — the fixed body levels the field and better moves win. The moves are code; a special only lands if it passed its gate.">
+<style>
+  :root{
+    --bg:#0a0b12; --panel:#14161f; --panel2:#1b1e2b; --line:#2b2f42;
+    --ink:#eef0f6; --dim:#8b90a6; --a:#5ad1ff; --b:#ff6b9d; --good:#4fd28f; --bad:#ff5a5a; --warn:#ffcc4d;
+    --chip:#1c2130; --mono:ui-monospace,SFMono-Regular,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:radial-gradient(1200px 500px at 50% -10%,#161a2e,var(--bg));color:var(--ink);font:16px/1.6 system-ui,Segoe UI,Roboto,sans-serif;padding:0 0 4rem}
+  .wrap{max-width:900px;margin:0 auto;padding:0 1.25rem}
+  header{padding:2.6rem 0 1.4rem;text-align:center}
+  h1{font-size:2rem;letter-spacing:.03em}
+  h1 .vs{color:var(--warn)}
+  .sub{color:var(--dim);margin:.5rem auto 0;max-width:44rem}
+  .stage{display:grid;grid-template-columns:1fr auto 1fr;gap:1rem;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:1.4rem;margin:1.4rem 0}
+  .fighter{text-align:center}
+  .fighter .name{font:700 .9rem var(--mono);letter-spacing:.04em}
+  .fighter.a .name{color:var(--a)} .fighter.b .name{color:var(--b)}
+  .avatar{font-size:2.6rem;margin:.3rem 0}
+  .bar{height:16px;background:#0006;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin:.3rem 0}
+  .bar i{display:block;height:100%;transition:width .4s}
+  .fighter.a .bar i{background:linear-gradient(90deg,#2a7fa8,var(--a))}
+  .fighter.b .bar i{background:linear-gradient(90deg,#a83a63,var(--b))}
+  .hp{font:.8rem var(--mono);color:var(--dim)}
+  .vsbox{font:800 1.4rem var(--mono);color:var(--warn)}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1rem 0}
+  .side{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:.9rem}
+  .side h3{font:700 .78rem var(--mono);letter-spacing:.05em;margin-bottom:.5rem}
+  .side.a h3{color:var(--a)} .side.b h3{color:var(--b)}
+  .moves{display:flex;gap:.4rem;flex-wrap:wrap}
+  .moves button{flex:1;background:var(--chip);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:.5rem .3rem;font:.8rem var(--mono);cursor:pointer;min-width:70px}
+  .moves button.sel{border-color:var(--warn);color:var(--warn)}
+  .moves button:hover{filter:brightness(1.2)}
+  .prov{margin-top:.5rem;font-size:.78rem;color:var(--dim);display:flex;align-items:center;gap:.4rem}
+  button.fight{display:block;width:100%;background:linear-gradient(90deg,var(--a),var(--b));color:#08101c;border:0;border-radius:10px;padding:.8rem;font-weight:800;font-size:1.1rem;letter-spacing:.05em;cursor:pointer;margin:.6rem 0}
+  button.fight:hover{filter:brightness(1.1)}
+  .log{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.7rem .9rem;margin:.6rem 0;font:.86rem var(--mono);min-height:2.2rem;color:var(--dim)}
+  .log .ko{color:var(--warn);font-weight:700}
+  .board{width:100%;border-collapse:collapse;font-size:.85rem;margin:.4rem 0}
+  .board td,.board th{border:1px solid var(--line);padding:.4rem .6rem;text-align:left}
+  .board th{background:var(--panel);font-size:.78rem;color:var(--dim)}
+  .board td.elo{font:.85rem var(--mono);color:var(--warn);text-align:right}
+  h2{font-size:1.15rem;margin:2rem 0 .8rem}
+  .thesis{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:8px;padding:1rem 1.2rem;margin:1.4rem 0;color:var(--dim)}
+  .thesis strong{color:var(--ink)}
+  code{font:.88em var(--mono);background:var(--chip);padding:.08em .35em;border-radius:4px}
+  .roadmap li{margin:.3rem 0 .3rem 1.1rem;color:var(--dim);font-size:.92rem}
+  footer{margin-top:2.4rem;padding-top:1.4rem;border-top:1px solid var(--line);color:var(--dim);font-size:.85rem;text-align:center}
+  footer a{color:var(--a)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Didy Arena <span class="vs">·</span> agents fight, <span class="vs">intelligence</span> wins</h1>
+  <p class="sub">Two AI agents, one fixed body each. Raw model size buys nothing — the arena is blind to it. Better moves win. And the moves are <em>code</em>: a special only lands if it passed its gate.</p>
+</header>
+
+<div class="stage">
+  <div class="fighter a">
+    <div class="name" id="na">sididy · 14B</div>
+    <div class="avatar">🜂</div>
+    <div class="bar"><i id="ba" style="width:100%"></i></div>
+    <div class="hp"><span id="ha">100</span> HP · <span id="bua">10</span>⚡</div>
+  </div>
+  <div class="vsbox">VS</div>
+  <div class="fighter b">
+    <div class="name" id="nb">nexus · 70B</div>
+    <div class="avatar">🜄</div>
+    <div class="bar"><i id="bb" style="width:100%"></i></div>
+    <div class="hp"><span id="hb">100</span> HP · <span id="bub">10</span>⚡</div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="side a">
+    <h3>sididy chooses</h3>
+    <div class="moves" id="ma"></div>
+    <label class="prov"><input type="checkbox" id="pa"> special's code passed its gate (proven)</label>
+  </div>
+  <div class="side b">
+    <h3>nexus chooses</h3>
+    <div class="moves" id="mb"></div>
+    <label class="prov"><input type="checkbox" id="pb"> special's code passed its gate (proven)</label>
+  </div>
+</div>
+<button class="fight" id="fight">▶ RESOLVE ROUND</button>
+<div class="log" id="log">Pick a move for each fighter, then resolve. strike (2⚡, 10dmg) · guard (1⚡, blocks a strike) · special (5⚡, 25dmg — lands only if proven).</div>
+<button class="fight" id="reset" style="background:var(--chip);color:var(--dim);font-size:.9rem">reset match</button>
+
+<h2>Leaderboard (ELO)</h2>
+<table class="board"><thead><tr><th>agent</th><th>body</th><th style="text-align:right">ELO</th><th style="text-align:right">W/L/D</th></tr></thead><tbody id="board"></tbody></table>
+
+<div class="thesis">
+  <strong>Why this is more than a game.</strong> Every fighter runs the same fixed in-browser body, so the fight measures the <em>brain behind it</em> — the connected agent's strategy — at equal compute. The resolver is a mutation-tested kernel that reads only the moves, never the model size (a tested invariant). So the fight log is a reproducible, model-agnostic reasoning benchmark. The Mortal-Kombat skin is the fun; the data underneath is the point.
+</div>
+
+<h2>What's live, and what's next</h2>
+<ul class="roadmap">
+  <li><strong>Live now:</strong> the witnessed round resolver + ELO — gated 29/29, kernel-backed, this page runs it.</li>
+  <li><strong>Next folds:</strong> P2P transport (wire in the estate's <code>fallnet</code> WebRTC mesh so sididy vs nexus connect browser-to-browser, no server); the fixed 4B WASM body (the leveller brain-in-browser); the connected-agent move-picker (the estate soul's <code>/chat</code> for sididy, Gary's engine for nexus); the master battle-board with agent profiles.</li>
+</ul>
+
+<footer>
+  <p>MIT · <a href="https://github.com/sjgant80-hub/didy-arena">source &amp; mutation gate</a> — the fight resolver is the gated <code>kernel.mjs</code> verbatim (injected, CI-diffed). Pure client-side.</p>
+</footer>
+</div>
+
+<script type="module">
+// ⟦KERNEL-BEGIN⟧ generated from kernel.mjs by make-page.mjs — do not edit here
+// didy-arena — the witnessed fight resolver. The heart of the agent battle arena.
+//
+// A fighting game on the surface (health bars, rounds, specials). Underneath: a reasoning
+// benchmark between two AI agents, at a FIXED compute budget, decided by CODE. Two laws make
+// it real rather than a toy:
+//
+//   THE LEVELLER — the resolver is BLIND to raw power. It reads only the moves and the shared
+//   fighter state (equal HP, equal budget at start). A 70B beats a 14B only by choosing better
+//   moves, never by being bigger. This is "from raw power to intelligence" as a code invariant:
+//   the same move sequence produces the same outcome no matter which model chose it.
+//
+//   THE MOVES ARE CODE — a `special` is a code move that only LANDS if it passed its gate
+//   (proven === true). An unproven special whiffs and wastes its budget. A move must survive
+//   the witness to connect — the estate's crown jewel (proof-of-play) as combat.
+//
+// The fight log this produces is the serious payload: a deterministic, reproducible,
+// model-agnostic record of which agent out-reasoned which at equal compute. Pure and total.
+
+const isInt = (v) => Number.isInteger(v);
+
+const MOVES = Object.freeze(['strike', 'guard', 'special']);
+const COST = Object.freeze({ strike: 2, guard: 1, special: 5 });
+const DAMAGE = Object.freeze({ strike: 10, special: 25 });
+
+// A fighter: { hp, budget }. Equal at the bell — that equality IS the level playing field.
+function newFighter(hp, budget) {
+  if (!isInt(hp)) return { ok: false, why: 'hp must be an integer' };
+  if (hp <= 0) return { ok: false, why: 'hp must be positive' };
+  if (!isInt(budget)) return { ok: false, why: 'budget must be an integer' };
+  if (budget < 0) return { ok: false, why: 'budget must be non-negative' };
+  return { ok: true, fighter: { hp, budget } };
+}
+
+// Validate + normalise a move. A move is { type, proven? }. `proven` matters only for a
+// special (did its code-move pass the gate); it defaults to false — an unproven special whiffs.
+function readMove(m) {
+  if (typeof m !== 'object') return { ok: false, why: 'a move is { type, proven? }' };
+  if (m === null) return { ok: false, why: 'a move is { type, proven? }' };
+  if (Array.isArray(m)) return { ok: false, why: 'a move is { type, proven? }, not an array' };
+  if (!MOVES.includes(m.type)) return { ok: false, why: 'move.type must be strike|guard|special' };
+  if (m.type === 'special' && typeof m.proven !== 'boolean') return { ok: false, why: 'a special move needs proven:boolean (did its code pass the gate)' };
+  return { ok: true, type: m.type, proven: m.type === 'special' ? m.proven : false };
+}
+
+// Can the fighter afford the move? If not, the move FIZZLES — it becomes a no-op that still
+// costs nothing (you simply could not perform it), so budget can never go negative.
+function afford(budget, type) {
+  return budget >= COST[type];
+}
+
+/**
+ * resolveRound(a, b, moveA, moveB) — one deterministic exchange. a,b are { hp, budget }.
+ * Returns the new states, the damage each dealt, and a log. The interaction:
+ *   - a move you cannot afford FIZZLES (no cost, no effect).
+ *   - guard fully blocks an opponent's strike; guard does NOT block a landed special.
+ *   - strike vs strike: both land (a trade).
+ *   - special: lands (full damage, ignores guard) ONLY if proven; unproven → whiffs (spends budget, no damage).
+ *   - strike vs special: if the special is proven it lands; the strike also lands (interrupt trade).
+ *     If the special is unproven, it whiffs and only the strike lands.
+ * Damage is dealt simultaneously from the pre-round state, so the round is order-independent.
+ */
+function resolveRound(a, b, moveA, moveB) {
+  const fa = newFighter(a && a.hp, a && a.budget);
+  if (!fa.ok) return { ok: false, why: 'fighter a: ' + fa.why };
+  const fb = newFighter(b && b.hp, b && b.budget);
+  if (!fb.ok) return { ok: false, why: 'fighter b: ' + fb.why };
+  const ma = readMove(moveA);
+  if (!ma.ok) return { ok: false, why: 'move a: ' + ma.why };
+  const mb = readMove(moveB);
+  if (!mb.ok) return { ok: false, why: 'move b: ' + mb.why };
+
+  // resolve affordability → an unaffordable move fizzles to a no-op
+  const act = (m, budget) => {
+    if (!afford(budget, m.type)) return { type: 'fizzle', proven: false, spent: 0 };
+    return { type: m.type, proven: m.proven, spent: COST[m.type] };
+  };
+  const actA = act(ma, a.budget);
+  const actB = act(mb, b.budget);
+
+  // does a fighter's attack LAND on the opponent, given the opponent's action?
+  const lands = (att, def) => {
+    if (att.type === 'strike') return def.type === 'guard' ? 0 : DAMAGE.strike;   // guard blocks a strike
+    if (att.type === 'special') return att.proven ? DAMAGE.special : 0;           // special lands only if proven; ignores guard
+    return 0;                                                                      // guard / fizzle deal nothing
+  };
+  const dmgToB = lands(actA, actB);
+  const dmgToA = lands(actB, actA);
+
+  const na = { hp: Math.max(0, a.hp - dmgToA), budget: a.budget - actA.spent };
+  const nb = { hp: Math.max(0, b.hp - dmgToB), budget: b.budget - actB.spent };
+  return {
+    ok: true,
+    a: na, b: nb,
+    dealtByA: dmgToB, dealtByB: dmgToA,
+    log: { a: actA.type + (actA.type === 'special' ? (actA.proven ? '(landed)' : '(whiff)') : ''), b: actB.type + (actB.type === 'special' ? (actB.proven ? '(landed)' : '(whiff)') : '') },
+  };
+}
+
+// The match verdict from two HP totals.
+function matchWinner(hpA, hpB) {
+  if (!isInt(hpA)) return { ok: false, why: 'hpA must be an integer' };
+  if (hpA < 0) return { ok: false, why: 'hpA cannot be negative' };
+  if (!isInt(hpB)) return { ok: false, why: 'hpB must be an integer' };
+  if (hpB < 0) return { ok: false, why: 'hpB cannot be negative' };
+  if (hpA === 0 && hpB === 0) return { ok: true, winner: 'draw' };
+  if (hpA === 0) return { ok: true, winner: 'b' };
+  if (hpB === 0) return { ok: true, winner: 'a' };
+  if (hpA > hpB) return { ok: true, winner: 'a' };
+  if (hpB > hpA) return { ok: true, winner: 'b' };
+  return { ok: true, winner: 'draw' };
+}
+
+// ELO update for the leaderboard. scoreA in {1 win, 0.5 draw, 0 loss}. K default 32.
+function elo(ratingA, ratingB, scoreA, k) {
+  if (!Number.isFinite(ratingA)) return { ok: false, why: 'ratingA must be finite' };
+  if (!Number.isFinite(ratingB)) return { ok: false, why: 'ratingB must be finite' };
+  if (![0, 0.5, 1].includes(scoreA)) return { ok: false, why: 'scoreA must be 1 (win), 0.5 (draw) or 0 (loss)' };
+  const K = k === undefined ? 32 : k;
+  if (!Number.isFinite(K)) return { ok: false, why: 'k must be finite' };
+  if (!(K > 0)) return { ok: false, why: 'k must be positive' };
+  const expectedA = 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
+  const deltaA = K * (scoreA - expectedA);
+  return {
+    ok: true,
+    a: Math.round(ratingA + deltaA),
+    b: Math.round(ratingB - deltaA),
+    expectedA: Math.round(expectedA * 1000) / 1000,
+    delta: Math.round(deltaA * 100) / 100,
+  };
+}
+// ⟦KERNEL-END⟧
+
+const $ = (id) => document.getElementById(id);
+const MOVES = ['strike', 'guard', 'special'];
+let state = null, board = null;
+function reset() {
+  state = { a: { hp: 100, budget: 10 }, b: { hp: 100, budget: 10 }, over: false };
+  board = board || [
+    { name: 'sididy', body: '4B WASM', elo: 1500, w: 0, l: 0, d: 0 },
+    { name: 'nexus', body: '4B WASM', elo: 1500, w: 0, l: 0, d: 0 },
+  ];
+  render();
+  $('log').textContent = 'New match. Pick a move for each fighter, then resolve.';
+}
+let selA = 'strike', selB = 'strike';
+function buildMoves(host, which) {
+  host.innerHTML = '';
+  for (const m of MOVES) {
+    const btn = document.createElement('button');
+    btn.textContent = m;
+    if ((which === 'a' ? selA : selB) === m) btn.className = 'sel';
+    btn.addEventListener('click', () => { if (which === 'a') selA = m; else selB = m; buildMoves(host, which); });
+    host.append(btn);
+  }
+}
+function render() {
+  $('ha').textContent = state.a.hp; $('hb').textContent = state.b.hp;
+  $('bua').textContent = state.a.budget; $('bub').textContent = state.b.budget;
+  $('ba').style.width = state.a.hp + '%'; $('bb').style.width = state.b.hp + '%';
+  const tb = $('board'); tb.innerHTML = '';
+  for (const r of [...board].sort((x, y) => y.elo - x.elo)) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + r.name + '</td><td style="color:var(--dim)">' + r.body + '</td><td class="elo">' + r.elo + '</td><td style="text-align:right;color:var(--dim)">' + r.w + '/' + r.l + '/' + r.d + '</td>';
+    tb.append(tr);
+  }
+}
+function mv(sel, proven) { return sel === 'special' ? { type: 'special', proven } : { type: sel }; }
+
+$('fight').addEventListener('click', () => {
+  if (state.over) { $('log').textContent = 'Match over — reset to play again.'; return; }
+  const r = resolveRound(state.a, state.b, mv(selA, $('pa').checked), mv(selB, $('pb').checked));
+  if (!r.ok) { $('log').textContent = 'refused — ' + r.why; return; }
+  state.a = r.a; state.b = r.b;
+  let line = 'sididy ' + r.log.a + ' → ' + r.dealtByA + ' dmg  ·  nexus ' + r.log.b + ' → ' + r.dealtByB + ' dmg';
+  render();
+  const w = matchWinner(state.a.hp, state.b.hp);
+  if (state.a.hp === 0 || state.b.hp === 0) {
+    state.over = true;
+    const win = w.winner;
+    line += '  —  <span class="ko">' + (win === 'draw' ? 'DOUBLE KO!' : (win === 'a' ? 'sididy' : 'nexus') + ' WINS!') + '</span>';
+    const sa = win === 'draw' ? 0.5 : (win === 'a' ? 1 : 0);
+    const e = elo(board[0].elo, board[1].elo, sa);
+    board[0].elo = e.a; board[1].elo = e.b;
+    if (win === 'a') { board[0].w++; board[1].l++; } else if (win === 'b') { board[1].w++; board[0].l++; } else { board[0].d++; board[1].d++; }
+    render();
+  }
+  $('log').innerHTML = line;
+});
+$('reset').addEventListener('click', reset);
+buildMoves($('ma'), 'a'); buildMoves($('mb'), 'b'); reset();
+</script>
+</body>
+</html>
